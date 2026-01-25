@@ -1,77 +1,110 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Fullscreen immersive
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
+  );
+
+  runApp(const XSatanicApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class XSatanicApp extends StatelessWidget {
+  const XSatanicApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: WebContainer(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  final String title;
+class WebContainer extends StatefulWidget {
+  const WebContainer({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<WebContainer> createState() => _WebContainerState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  late WebViewController _controller;
+class _WebContainerState extends State<WebContainer> {
+  InAppWebViewController? _controller;
 
-Future<bool> _onWillPop(BuildContext context) async {
-    if (await _controller.canGoBack()) {
-      _controller.goBack();
-      return Future.value(false);
-    } else {
-      return Future.value(true);
-    }
+  // Hide URL (split string)
+  String buildUrl() {
+    return "https"
+        "://"
+        "xsat"
+        "anic"
+        ".dxy"
+        "vxz"
+        ".my"
+        ".id";
   }
 
-  _goBack() async{
-    if (await _controller.canGoBack()) {
-      await _controller.goBack();
+  Future<bool> _onWillPop() async {
+    if (_controller != null && await _controller!.canGoBack()) {
+      _controller!.goBack();
+      return false;
     }
-  }
-  _goForward() async {  
-    if (await _controller.canGoForward()) {
-      await _controller.goForward();
-    }
+    return true;
   }
 
-  
   @override
-
   Widget build(BuildContext context) {
     return WillPopScope(
-      
-      onWillPop: () => _onWillPop(context),
-       
+      onWillPop: _onWillPop,
       child: Scaffold(
-        body: SafeArea(
-          child: WebView(
-          // Replace the below link with the link that you desire!
-          initialUrl: "https://flutter.dev/",
-          javascriptMode: JavascriptMode.unrestricted,
-          
-          onWebViewCreated: (WebViewController webviewcontroller){
-            _controller = webviewcontroller;
+        backgroundColor: Colors.black,
+        body: InAppWebView(
+          initialUrlRequest: URLRequest(
+            url: WebUri(buildUrl()),
+            headers: {
+              "Cache-Control": "max-age=86400",
+            },
+          ),
+          initialSettings: InAppWebViewSettings(
+            // BASIC
+            javaScriptEnabled: true,
+            domStorageEnabled: true,
+            allowsInlineMediaPlayback: true,
+            mediaPlaybackRequiresUserGesture: false,
+            supportZoom: false,
+
+            // CACHE (KUNCI PRELOAD)
+            cacheEnabled: true,
+            horizontalScrollBarEnabled: false,
+            verticalScrollBarEnabled: false,
+            clearCache: false,
+            clearSessionCache: false,
+
+            // ANDROID CACHE MODE (INI YANG PENTING)
+            cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
+
+            // VISUAL
+            transparentBackground: true,
+          ),
+          onWebViewCreated: (controller) async {
+            _controller = controller;
+
+            // Trigger preload supaya cache kepakai cepat
+            await _controller!.loadUrl(
+              urlRequest: URLRequest(url: WebUri(buildUrl())),
+            );
           },
-        ),
+          androidOnPermissionRequest:
+              (controller, origin, resources) async {
+            return PermissionRequestResponse(
+              resources: resources,
+              action: PermissionRequestResponseAction.GRANT,
+            );
+          },
         ),
       ),
     );
