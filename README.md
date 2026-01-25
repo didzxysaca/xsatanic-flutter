@@ -1,6 +1,6 @@
-# Webview_Template
+# X-Satanic
 
-![image](https://user-images.githubusercontent.com/68809278/197468633-f0e90392-e8a3-4b66-b200-53939448236b.png)
+![image]()
 
 Easily convert a website into an app with this template.
 Its simple and fun
