@@ -42,7 +42,7 @@ class _WebContainerState extends State<WebContainer>
   InAppWebViewController? _controller;
   late PullToRefreshController _pullToRefreshController;
 
-  // Jembatan komunikasi ke Android untuk Service
+  // Jembatan komunikasi ke Android
   static const _serviceChannel = MethodChannel('xsatanic/service');
 
   String buildUrl() {
@@ -61,28 +61,26 @@ class _WebContainerState extends State<WebContainer>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Panggil service Android saat app launch
+    // Memanggil service saat aplikasi dijalankan
     try {
       _serviceChannel.invokeMethod('startService');
     } catch (e) {
       debugPrint("Gagal menjalankan service: $e");
     }
 
-    // ===== PULL TO REFRESH (VERSI TERBARU) =====
+    // ===== PULL TO REFRESH (VERSI FORCE ENABLE) =====
     _pullToRefreshController = PullToRefreshController(
       settings: PullToRefreshSettings(
         color: Colors.red,
-        enabled: true, // Pastikan ini aktif
       ),
       onRefresh: () async {
-        // Logika cerdas: Cek fungsi internal web dulu, jika tidak ada baru reload
+        // Force scroll ke atas lalu reload tanpa menghapus session
         await _controller?.evaluateJavascript(
           source: """
-            if (window.__xsatanic_refresh) {
-              window.__xsatanic_refresh();
-            } else {
-              location.reload();
+            if (document.scrollingElement) {
+              document.scrollingElement.scrollTop = 0;
             }
+            window.location.reload(false);
           """,
         );
       },
@@ -95,7 +93,6 @@ class _WebContainerState extends State<WebContainer>
     super.dispose();
   }
 
-  // Mencegah auto refresh saat aplikasi dibuka kembali (resumed)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -105,7 +102,6 @@ class _WebContainerState extends State<WebContainer>
     }
   }
 
-  // Fungsi tombol back HP
   Future<bool> _onWillPop() async {
     if (_controller != null && await _controller!.canGoBack()) {
       _controller!.goBack();
@@ -114,7 +110,6 @@ class _WebContainerState extends State<WebContainer>
     return true;
   }
 
-  // Mencegah copy-paste di WebView
   void _injectAntiCopy(InAppWebViewController controller) {
     controller.evaluateJavascript(source: """
       (function () {
@@ -176,7 +171,6 @@ class _WebContainerState extends State<WebContainer>
           },
 
           onLoadStop: (controller, url) async {
-            // Hentikan loading spinner refresh
             _pullToRefreshController.endRefreshing();
             _injectAntiCopy(controller);
           },
@@ -189,7 +183,6 @@ class _WebContainerState extends State<WebContainer>
             final uri = action.request.url!;
             const internalDomain = "xsatanic.dxyvxz.my.id";
 
-            // Jika klik link di luar domain, buka di browser HP (Chrome/Safari)
             if (!uri.host.contains(internalDomain)) {
               if (await canLaunchUrl(uri)) {
                 await launchUrl(
